@@ -40,16 +40,18 @@ function videojs_youtube_field_formatter_view($entity_type, $entity, $field, $in
   }
 
   drupal_add_library('videojs_youtube', 'videojs_youtube');
+  module_load_include('inc', 'videojs', 'includes/videojs.utility');
+  $options = videojs_utility::getDefaultDisplaySettings();
+
   list($id, $vid, $bundle) = entity_extract_ids($entity_type, $entity);
   return array(
     array(
       '#theme' => 'videojs_youtube',
       '#items' => $items,
       '#player_id' => 'videojs-' . $id . '-' . str_replace('_', '-', $instance['field_name']),
+      '#options' => $options,
+      '#ytcontrols' => 'true',
       '#attached' => videojs_add(FALSE),
-      '#entity' => $entity,
-      '#entity_type' => $entity_type,
-      '#attributes' => array(),
     ),
   );
 }
@@ -63,10 +65,8 @@ function videojs_youtube_theme() {
       'variables' => array(
         'items' => NULL,
         'player_id' => NULL,
-        'width' => 480,
-        'height' => 360,
-        'attributes' => array(),
-        'youtube_controls' => TRUE,
+        'options' => array(),
+        'ytcontrols' => NULL,
       ),
     ),
   );
@@ -76,23 +76,32 @@ function videojs_youtube_theme() {
  * Theme function for age field
  */
 function theme_videojs_youtube($vars) {
-  $player_id = $vars['player_id'];
-  $attributes = $vars['attributes'];
-  $width = $vars['width'];
-  $height = $vars['height'];
-  $youtube_controls = $vars['youtube_controls'];
-  $items = $vars['items'];
+  $options = $vars['options'];
+  /* Unset unnecessary options */
+  unset($options['loop'], $options['hidecontrols'], $options['autoplay'], $options['defaulttrack']);
+  $options += array(
+    'id' => $vars['player_id'],
+    'src' => '',
+    'class' => 'video-js vjs-default-skin',
+  );
+
+  if(isset($vars['options']['hidecontrols']) && $vars['options']['hidecontrols'] != TRUE) {
+    $options += array('controls' => 'true');
+  }
+
+  $attributes = drupal_attributes($options);
+
+  $data_setup = array('techOrder' => array('youtube'));
+  if(isset($options['controls']) && isset($vars['ytcontrols'])) {
+    $data_setup += array('ytcontrols' => 'true');
+  }
 
   $output = '';
-  foreach($items as $item) {
-    $output .= "<video id=\"{$player_id}\" src=\"\" class=\"video-js vjs-default-skin\" controls
-               preload=\"auto\" width=\"{$width}\" height=\"{$height}\"
-               data-setup='{
-                 \"ytcontrols\" : \"{$youtube_controls}\",
-                 \"techOrder\": [\"youtube\"],
-                 \"src\": \"{$item['url']}\"
-               }'>
-             </video>";
+  foreach($vars['items'] as $item) {
+    $data_setup['src'] = $item['url'];
+    $encoded_setup = drupal_json_encode($data_setup);
+    $encoded_setup = str_replace('\\/', '/', $encoded_setup);
+    $output .= "<video {$attributes} data-setup={$encoded_setup}></video>";
   }
 
   return $output;
