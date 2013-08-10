@@ -3,3 +3,4 @@ description = "Youtube field formatter"
 core = 7.x
 php = 5.3
 
+dependencies[] = videojs
