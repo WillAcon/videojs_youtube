@@ -1,0 +1,99 @@
+<?php
+
+/**
+ * Implements hook_library().
+ */
+function videojs_youtube_library() {
+  $libraries['videojs_youtube'] = array(
+    'title' => 'VideoJS Youtube',
+    'website' => 'https://github.com/eXon/videojs-youtube',
+    'version' => '1.0',
+    'js' => array(
+      libraries_get_path('videojs-youtube') . '/vjs.youtube.js' => array('weight' => 10),
+    ),
+  );
+
+  return $libraries;
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function videojs_youtube_field_formatter_info() {
+  return array(
+    'videojs_youtube' => array(
+      'label' => 'VideoJS Youtube',
+      'field types' => array('link_field'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_view(). This code just passes straight
+ */
+function videojs_youtube_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  if ($display['type'] !== 'videojs_youtube') {
+    return array();
+  }
+  if (empty($items)) {
+    return array();
+  }
+
+  drupal_add_library('videojs_youtube', 'videojs_youtube');
+  list($id, $vid, $bundle) = entity_extract_ids($entity_type, $entity);
+  return array(
+    array(
+      '#theme' => 'videojs_youtube',
+      '#items' => $items,
+      '#player_id' => 'videojs-' . $id . '-' . str_replace('_', '-', $instance['field_name']),
+      '#attached' => videojs_add(FALSE),
+      '#entity' => $entity,
+      '#entity_type' => $entity_type,
+      '#attributes' => array(),
+    ),
+  );
+}
+
+/**
+ * Implements hook_theme().
+ */
+function videojs_youtube_theme() {
+  return array(
+    'videojs_youtube' => array(
+      'variables' => array(
+        'items' => NULL,
+        'player_id' => NULL,
+        'width' => 480,
+        'height' => 360,
+        'attributes' => array(),
+        'youtube_controls' => TRUE,
+      ),
+    ),
+  );
+}
+
+/*
+ * Theme function for age field
+ */
+function theme_videojs_youtube($vars) {
+  $player_id = $vars['player_id'];
+  $attributes = $vars['attributes'];
+  $width = $vars['width'];
+  $height = $vars['height'];
+  $youtube_controls = $vars['youtube_controls'];
+  $items = $vars['items'];
+
+  $output = '';
+  foreach($items as $item) {
+    $output .= "<video id=\"{$player_id}\" src=\"\" class=\"video-js vjs-default-skin\" controls
+               preload=\"auto\" width=\"{$width}\" height=\"{$height}\"
+               data-setup='{
+                 \"ytcontrols\" : \"{$youtube_controls}\",
+                 \"techOrder\": [\"youtube\"],
+                 \"src\": \"{$item['url']}\"
+               }'>
+             </video>";
+  }
+
+  return $output;
+}
