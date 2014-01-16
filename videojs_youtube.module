@@ -48,9 +48,9 @@ function videojs_youtube_field_formatter_view($entity_type, $entity, $field, $in
     array(
       '#theme' => 'videojs_youtube',
       '#items' => $items,
-      '#player_id' => 'videojs-' . $id . '-' . str_replace('_', '-', $instance['field_name']),
       '#options' => $options,
       '#ytcontrols' => 'true',
+      '#limit' => isset($display['settings']['field_multiple_limit'])? $display['settings']['field_multiple_limit']: NULL,
       '#attached' => videojs_add(FALSE),
     ),
   );
@@ -67,41 +67,74 @@ function videojs_youtube_theme() {
         'player_id' => NULL,
         'options' => array(),
         'ytcontrols' => NULL,
+        'limit' => NULL,
       ),
     ),
   );
 }
 
 /*
- * Theme function for age field
+ * Theme function for player
  */
 function theme_videojs_youtube($vars) {
+  $output = '';
   $options = $vars['options'];
+
   /* Unset unnecessary options */
   unset($options['loop'], $options['hidecontrols'], $options['autoplay'], $options['defaulttrack']);
+
   $options += array(
-    'id' => $vars['player_id'],
     'src' => '',
     'class' => 'video-js vjs-default-skin',
   );
 
-  if(isset($vars['options']['hidecontrols']) && $vars['options']['hidecontrols'] != TRUE) {
+  if (isset($vars['options']['hidecontrols']) && $vars['options']['hidecontrols'] != TRUE) {
     $options += array('controls' => 'true');
   }
 
   $attributes = drupal_attributes($options);
 
   $data_setup = array('techOrder' => array('youtube'));
-  if(isset($options['controls']) && isset($vars['ytcontrols'])) {
+  if (isset($options['controls']) && isset($vars['ytcontrols'])) {
     $data_setup += array('ytcontrols' => 'true');
   }
 
-  $output = '';
-  foreach($vars['items'] as $item) {
+  $items = $vars['items'];
+  if(isset($vars['limit'])) {
+    $items = array_slice($items, 0, $vars['limit']);
+  }
+
+  foreach ($items as $item) {
+    $parsed = drupal_parse_url($item['url']);
+    if(!empty($parsed['query']['v'])) {
+      $attr_id = 'videojs-' . $parsed['query']['v'];
+    }
+    else {
+      $remove = array(
+        'http://', 'www', 'youtube', 'watch', 'feature', 'player_embedded',
+        '.', 'com', 'be', 'youtu', '/', 'v=', '&', '?', '='
+      );
+      
+      $attr_id = 'videojs-' . str_replace($remove, array(''), $item['url']);
+
+      // Replace whitespace.      
+      $attr_id = str_replace(' ', '_', $attr_id);
+      
+      // Remove remaining unsafe characters.
+      $attr_id = preg_replace('![^0-9A-Za-z_.-]!', '', $attr_id);
+
+      // Remove multiple consecutive non-alphabetical characters.
+      $attr_id = preg_replace('/(_)_+|(\.)\.+|(-)-+/', '\\1\\2\\3', $attr_id);
+
+      // Force lowercase
+      $attr_id = drupal_strtolower($attr_id);
+    }
+
     $data_setup['src'] = $item['url'];
-    $encoded_setup = drupal_json_encode($data_setup);
-    $encoded_setup = str_replace('\\/', '/', $encoded_setup);
-    $output .= "<video {$attributes} data-setup={$encoded_setup}></video>";
+    $json_setup = drupal_json_encode($data_setup);
+    $json_setup = str_replace('\\/', '/', $json_setup);
+
+    $output = "<video id=\"$attr_id\" {$attributes} data-setup={$json_setup}></video>";
   }
 
   return $output;
